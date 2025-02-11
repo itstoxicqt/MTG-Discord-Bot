@@ -11,7 +11,6 @@ type Card struct {
 	CardID        int    `json:"card_id"`
 	CardName      string `json:"card_name"`
 	StartPlayerID int    `json:"start_player_id"`
-	NewCardID     int    `json:"new_card_id"`
 }
 
 // Define a struct for wrapping the event list
@@ -39,9 +38,9 @@ func main() {
 	// Iterate over events and extract card-related data
 	for _, event := range eventData.EventList {
 		for eventType, rawData := range event {
-			fmt.Println("Event type Found:", eventType)   // debugging #TODO debug
-			fmt.Print("raw event data:", string(rawData)) // more debugging lines
-			if eventType == "[Event_MoveCard.ext]" {      // Only process card move events
+			// fmt.Println("Event type Found:", eventType) // debugging #TODO debug
+			// fmt.Print("raw event data:", string(rawData)) // more debugging lines
+			if eventType == "[Event_MoveCard.ext]" { // Only process card move events
 				var card Card
 				err := json.Unmarshal(rawData, &card)
 				if err != nil {
