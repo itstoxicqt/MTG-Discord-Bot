@@ -1,2 +1,6 @@
 
 env
+.env
+parsed.txt
+*.cor
+*.json

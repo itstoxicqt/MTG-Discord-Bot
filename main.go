@@ -1,4 +1,4 @@
-package main
+ackage main
 
 // import bot "example.com/hello_world_bot/Bot"
 import (
