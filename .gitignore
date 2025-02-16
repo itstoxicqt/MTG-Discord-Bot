@@ -4,3 +4,6 @@ env
 parsed.txt
 *.cor
 *.json
+parser.py
+test_parsed_Json.txt
+testparse.py
