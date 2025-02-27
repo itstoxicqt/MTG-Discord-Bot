@@ -65,14 +65,16 @@ func main() {
 		return
 	}
 
-	// Map to store player ID to name mappings
+	// Maps to store player ID to name and card ID to name mappings
 	playerNames := make(map[int]string)
+	cardNames := make(map[int]string)
 
-	// First pass: Collect player names from Join events
+	// First pass: Collect player names and card names
 	for _, event := range eventData.Events {
 		for _, eventItem := range event.EventList {
 			for eventType, rawData := range eventItem {
-				if eventType == "[Event_Join.ext]" {
+				switch eventType {
+				case "[Event_Join.ext]":
 					var join JoinEvent
 					err := json.Unmarshal(rawData, &join)
 					if err != nil {
@@ -80,12 +82,21 @@ func main() {
 						continue
 					}
 					playerNames[join.PlayerProperties.PlayerID] = join.PlayerProperties.UserInfo.Name
+
+				case "[Event_MoveCard.ext]":
+					var card Card
+					err := json.Unmarshal(rawData, &card)
+					if err != nil {
+						fmt.Println("Error parsing card event:", err)
+						continue
+					}
+					cardNames[card.CardID] = card.CardName
 				}
 			}
 		}
 	}
 
-	// Second pass: Process card events using the player names map
+	// Second pass: Process card events using the player and card names maps
 	for _, event := range eventData.Events {
 		for _, eventItem := range event.EventList {
 			for eventType, rawData := range eventItem {
@@ -97,7 +108,6 @@ func main() {
 						fmt.Println("Error parsing card event:", err)
 						continue
 					}
-					// Look up player name, use "Unknown" if not found
 					playerName, ok := playerNames[card.StartPlayerID]
 					if !ok {
 						playerName = "Unknown"
@@ -112,8 +122,13 @@ func main() {
 						fmt.Println("Error parsing card attribute event:", err)
 						continue
 					}
-					fmt.Printf("Card Attribute Event at %d seconds: CardID=%d, Zone=%s, Attribute=%s\n",
-						event.Seconds, cardAttr.CardID, cardAttr.ZoneName, cardAttr.Attribute)
+					// Look up card name, use "Unknown" if not found
+					cardName, ok := cardNames[cardAttr.CardID]
+					if !ok {
+						cardName = "Unknown"
+					}
+					fmt.Printf("Card Attribute Event at %d seconds: CardID=%d, Name=%s, Zone=%s, Attribute=%s\n",
+						event.Seconds, cardAttr.CardID, cardName, cardAttr.ZoneName, cardAttr.Attribute)
 				}
 			}
 		}
