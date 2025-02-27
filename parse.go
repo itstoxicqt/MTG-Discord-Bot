@@ -6,16 +6,40 @@ import (
 	"os"
 )
 
-// Define a struct for the card-related event
+// Define a struct for the original card movement event
 type Card struct {
 	CardID        int    `json:"card_id"`
 	CardName      string `json:"card_name"`
 	StartPlayerID int    `json:"start_player_id"`
 }
 
-// Define a struct for wrapping the event list
-type EventWrapper struct {
+// Define a struct for SetCardAttr event
+type CardAttr struct {
+	ZoneName  string `json:"zone_name"`
+	CardID    int    `json:"card_id"`
+	Attribute string `json:"attribute"`
+}
+
+// Define a struct for Join event to get player name
+type JoinEvent struct {
+	PlayerProperties struct {
+		PlayerID int `json:"player_id"`
+		UserInfo struct {
+			Name string `json:"name"`
+		} `json:"user_info"`
+	} `json:"player_properties"`
+}
+
+// Define a struct for individual events
+type Event struct {
 	EventList []map[string]json.RawMessage `json:"event_list"`
+	Seconds   int                          `json:"seconds_elapsed"`
+}
+
+// Define a struct for the top-level JSON
+type EventWrapper struct {
+	ReplayID string  `json:"replay_id"`
+	Events   []Event `json:"event_list"`
 }
 
 func main() {
@@ -35,19 +59,62 @@ func main() {
 		return
 	}
 
-	// Iterate over events and extract card-related data
-	for _, event := range eventData.EventList {
-		for eventType, rawData := range event {
-			// fmt.Println("Event type Found:", eventType) // debugging #TODO debug
-			// fmt.Print("raw event data:", string(rawData)) // more debugging lines
-			if eventType == "[Event_MoveCard.ext]" { // Only process card move events
-				var card Card
-				err := json.Unmarshal(rawData, &card)
-				if err != nil {
-					fmt.Println("Error parsing card event:", err)
-					continue
+	// Validation
+	if len(eventData.Events) == 0 {
+		fmt.Println("Warning: No events found in the file")
+		return
+	}
+
+	// Map to store player ID to name mappings
+	playerNames := make(map[int]string)
+
+	// First pass: Collect player names from Join events
+	for _, event := range eventData.Events {
+		for _, eventItem := range event.EventList {
+			for eventType, rawData := range eventItem {
+				if eventType == "[Event_Join.ext]" {
+					var join JoinEvent
+					err := json.Unmarshal(rawData, &join)
+					if err != nil {
+						fmt.Println("Error parsing join event:", err)
+						continue
+					}
+					playerNames[join.PlayerProperties.PlayerID] = join.PlayerProperties.UserInfo.Name
 				}
-				fmt.Printf("Parsed Card: %+v\n", card)
+			}
+		}
+	}
+
+	// Second pass: Process card events using the player names map
+	for _, event := range eventData.Events {
+		for _, eventItem := range event.EventList {
+			for eventType, rawData := range eventItem {
+				switch eventType {
+				case "[Event_MoveCard.ext]":
+					var card Card
+					err := json.Unmarshal(rawData, &card)
+					if err != nil {
+						fmt.Println("Error parsing card event:", err)
+						continue
+					}
+					// Look up player name, use "Unknown" if not found
+					playerName, ok := playerNames[card.StartPlayerID]
+					if !ok {
+						playerName = "Unknown"
+					}
+					fmt.Printf("Card Move Event at %d seconds: ID=%d, Name=%s, StartPlayer=%s\n",
+						event.Seconds, card.CardID, card.CardName, playerName)
+
+				case "[Event_SetCardAttr.ext]":
+					var cardAttr CardAttr
+					err := json.Unmarshal(rawData, &cardAttr)
+					if err != nil {
+						fmt.Println("Error parsing card attribute event:", err)
+						continue
+					}
+					fmt.Printf("Card Attribute Event at %d seconds: CardID=%d, Zone=%s, Attribute=%s\n",
+						event.Seconds, cardAttr.CardID, cardAttr.ZoneName, cardAttr.Attribute)
+				}
 			}
 		}
 	}
